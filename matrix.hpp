@@ -7,7 +7,7 @@
 #include <algorithm>
 #include <numeric>
 
-#include "matrix_impl.hpp"
+
 template<typename T>
 class Matrix
 {
@@ -99,5 +99,7 @@ public:
     const_iterator cbegin() const;
     const_iterator cend() const;
 };
+
+#include "matrix_impl.hpp"
 
 
