@@ -370,4 +370,3 @@ typename Matrix<T>::const_iterator Matrix<T>::cend() const {
     return const_iterator(m_buffer + m_rows * m_cols);
 }
 
-#endif // MATRIX_IMPL_HPP
