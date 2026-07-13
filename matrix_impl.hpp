@@ -297,6 +297,9 @@ void Matrix<T>::swap_rows(size_t row1, size_t row2)
 
 template<typename T>
 class Matrix<T>::const_iterator {
+private:
+    T* m_ptr;
+    
 public:
     using iterator_category = std::forward_iterator_tag;
     using value_type = T;
@@ -310,17 +313,25 @@ public:
     pointer operator->() const { return m_ptr; }
 
     const_iterator& operator++() { ++m_ptr; return *this; }
-    const_iterator operator++(int) { const_iterator tmp = *this; ++m_ptr; return tmp; }
+    const_iterator operator++(int) { 
+        const_iterator tmp = *this; 
+        ++m_ptr; 
+        return tmp; 
+    }
 
-    bool operator==(const const_iterator& other) const { return m_ptr == other.m_ptr; }
-    bool operator!=(const const_iterator& other) const { return m_ptr != other.m_ptr; }
-
-protected:
-    T* m_ptr;
+    bool operator==(const const_iterator& other) const { 
+        return m_ptr == other.m_ptr; 
+    }
+    bool operator!=(const const_iterator& other) const { 
+        return m_ptr != other.m_ptr; 
+    }
 };
 
 template<typename T>
-class Matrix<T>::iterator : public Matrix<T>::const_iterator {
+class Matrix<T>::iterator {
+private:
+    T* m_ptr;
+    
 public:
     using iterator_category = std::forward_iterator_tag;
     using value_type = T;
@@ -328,16 +339,27 @@ public:
     using pointer = T*;
     using reference = T&;
 
-    iterator(T* ptr = nullptr) : const_iterator(ptr) {}
+    iterator(T* ptr = nullptr) : m_ptr(ptr) {}
 
-    reference operator*() const { return *this->m_ptr; }
-    pointer operator->() const { return this->m_ptr; }
+    reference operator*() const { return *m_ptr; }
+    pointer operator->() const { return m_ptr; }
 
-    iterator& operator++() { ++this->m_ptr; return *this; }
-    iterator operator++(int) { iterator tmp = *this; ++this->m_ptr; return tmp; }
+    iterator& operator++() { ++m_ptr; return *this; }
+    iterator operator++(int) { 
+        iterator tmp = *this; 
+        ++m_ptr; 
+        return tmp; 
+    }
 
-    bool operator==(const iterator& other) const { return this->m_ptr == other.m_ptr; }
-    bool operator!=(const iterator& other) const { return this->m_ptr != other.m_ptr; }
+    bool operator==(const iterator& other) const { 
+        return m_ptr == other.m_ptr; 
+    }
+    bool operator!=(const iterator& other) const { 
+        return m_ptr != other.m_ptr; 
+    }
+    operator const_iterator() const {
+        return const_iterator(m_ptr);
+    }
 };
 
 template<typename T>
