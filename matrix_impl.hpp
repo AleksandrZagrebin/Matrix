@@ -1,394 +1,480 @@
-#pragma once
+#ifndef MATRIX_IMPL_HPP
+#define MATRIX_IMPL_HPP
 
 #include "matrix.hpp"
 
-template<typename T>
-Matrix<T>::Matrix(size_t rows, size_t cols, T val)
-    : m_rows(rows), m_cols(cols), m_buffer(new T[rows * cols])
+
+template <typename T>
+Matrix<T>::Row_matr::Row_matr(size_t cols, T *row) : m_cols(cols), m_row(row) {}
+
+template <typename T>
+const T &Matrix<T>::Row_matr::operator[](size_t i) const
 {
-    for (size_t i = 0; i < rows * cols; ++i)
-        m_buffer[i] = val;
+    assert(i < m_cols);
+    return m_row[i];
 }
 
-template<typename T>
-template<typename It>
+template <typename T>
+T &Matrix<T>::Row_matr::operator[](size_t i)
+{
+    assert(i < m_cols);
+    return m_row[i];
+}
+
+
+template <typename T>
+long double Matrix<T>::threshold = DEFAULT_THRESHOLD;
+
+
+template <typename T>
+Matrix<T>::Matrix(size_t rows, size_t cols) : m_matr(nullptr), m_rows(rows), m_cols(cols)
+{
+    Alloc();
+    ForEach([](int, int) { return T{}; });
+}
+
+template <typename T>
+template <typename It>
 Matrix<T>::Matrix(size_t rows, size_t cols, It begin, It end)
-    : m_rows(rows), m_cols(cols), m_buffer(new T[rows * cols])
+    : m_matr(nullptr), m_rows(rows), m_cols(cols)
 {
-    size_t total = rows * cols;
-    size_t count = 0;
-    for (It it = begin; it != end && count < total; ++it, ++count)
-        m_buffer[count] = *it;
-    if (count < total) {
-        for (size_t i = count; i < total; ++i)
-            m_buffer[i] = T{};
-    }
+    Alloc();
+    FillByIt(begin, end);
 }
 
-template<typename T>
-Matrix<T>::Matrix(size_t rows, size_t cols, std::initializer_list<T> list)
-    : Matrix(rows, cols, list.begin(), list.end()) {
-}
-
-template<typename T>
-Matrix<T>::Matrix(std::istream& is, size_t rows, size_t cols)
-    : m_rows(rows), m_cols(cols), m_buffer(new T[rows * cols])
+template <typename T>
+Matrix<T>::Matrix(size_t rows, size_t cols, const std::initializer_list<T> &ilist)
+    : m_matr(nullptr), m_rows(rows), m_cols(cols)
 {
-    size_t total = rows * cols;
-    for (size_t i = 0; i < total; ++i) {
-        if (!(is >> m_buffer[i])) {
-            throw std::runtime_error("Failed to read matrix data from stream");
-        }
-    }
+    Alloc();
+    FillByIt(ilist.begin(), ilist.end());
 }
 
-template<typename T>
-Matrix<T> Matrix<T>::eye(size_t n, size_t m)
+template <typename T>
+template <typename empl_func>
+Matrix<T>::Matrix(size_t rows, size_t cols, empl_func fnc)
+    : m_matr(nullptr), m_rows(rows), m_cols(cols)
 {
-    Matrix result(n, m, T{ 0 });
-    size_t min_dim = (n < m) ? n : m;
-    for (size_t i = 0; i < min_dim; ++i) {
-        result[i][i] = T(1);
-    }
-    return result;
+    Alloc();
+    ForEach(fnc);
 }
 
-template<typename T>
-Matrix<T> Matrix<T>::eye(size_t n) {
-    return eye(n, n);
-}
 
-template<typename T>
-Matrix<T>::Matrix(const Matrix& rhs)
-    : m_rows(rhs.m_rows), m_cols(rhs.m_cols), m_buffer(new T[rhs.m_rows * rhs.m_cols])
+template <typename T>
+template <typename func>
+void Matrix<T>::ForEach(func f)
 {
-    size_t total = m_rows * m_cols;
-    for (size_t i = 0; i < total; ++i)
-        m_buffer[i] = rhs.m_buffer[i];
+    for (size_t i = 0; i < m_rows; ++i)
+        for (size_t j = 0; j < m_cols; ++j)
+            m_matr[i][j] = f(i, j);
 }
 
-template<typename T>
-Matrix<T>& Matrix<T>::operator=(const Matrix& rhs) {
-    if (this == &rhs) {
+
+template <typename T>
+Matrix<T>::Matrix(const Matrix &matr) : m_matr(nullptr), m_rows(matr.m_rows), m_cols(matr.m_cols)
+{
+    Alloc();
+    Copy(*this, matr);
+}
+
+template <typename T>
+Matrix<T>::Matrix(Matrix &&matr) noexcept
+    : m_matr(matr.m_matr), m_rows(matr.m_rows), m_cols(matr.m_cols)
+{
+    matr.m_matr = nullptr;
+    matr.m_rows = matr.m_cols = 0;
+}
+
+
+template <typename T>
+Matrix<T> &Matrix<T>::operator=(const Matrix &matr)
+{
+    if (this == &matr)
         return *this;
+
+    if (m_rows == matr.m_rows && m_cols == matr.m_cols)
+        Copy(*this, matr);
+    else
+    {
+        Matrix tmp(matr);
+        Swap(*this, tmp);
     }
-    delete[] m_buffer;
-    m_rows = rhs.m_rows;
-    m_cols = rhs.m_cols;
-    m_buffer = new T[m_rows * m_cols];
-    size_t total = m_rows * m_cols;
-    for (size_t i = 0; i < total; ++i) {
-        m_buffer[i] = rhs.m_buffer[i];
-    }
+
     return *this;
 }
 
-template<typename T>
-Matrix<T>::Matrix(Matrix&& rhs) noexcept
-    : m_buffer(rhs.m_buffer), m_rows(rhs.m_rows), m_cols(rhs.m_cols)
+template <typename T>
+Matrix<T> &Matrix<T>::operator=(Matrix &&matr) noexcept
 {
-    rhs.m_buffer = nullptr;
-    rhs.m_rows = 0;
-    rhs.m_cols = 0;
-}
-
-template<typename T>
-Matrix<T>& Matrix<T>::operator=(Matrix&& rhs) noexcept
-{
-    if (this == &rhs)
+    if (this == &matr)
         return *this;
-    delete[] m_buffer;
-    m_buffer = rhs.m_buffer;
-    m_rows = rhs.m_rows;
-    m_cols = rhs.m_cols;
-    rhs.m_buffer = nullptr;
-    rhs.m_rows = 0;
-    rhs.m_cols = 0;
+
+    Matrix tmp(std::move(matr));
+    Swap(*this, tmp);
+
     return *this;
 }
 
-template<typename T>
-Matrix<T>::~Matrix() {
-    delete[] m_buffer;
+
+
+template <typename T>
+Matrix<T> &Matrix<T>::operator+=(const Matrix &matr)
+{
+    assert(matr.m_rows == m_rows && matr.m_cols == m_cols);
+
+    auto add_fnc = [&](int i, int j) { return m_matr[i][j] + matr.m_matr[i][j]; };
+    ForEach(add_fnc);
+
+    return *this;
 }
 
-template<typename T>
-T Matrix<T>::trace() const
+template <typename T>
+Matrix<T> &Matrix<T>::operator-=(const Matrix &matr)
+{
+    assert(matr.m_rows == m_rows && matr.m_cols == m_cols);
+    auto add_fnc = [&](int i, int j) { return m_matr[i][j] - matr.m_matr[i][j]; };
+    ForEach(add_fnc);
+
+    return *this;
+}
+
+template <typename T>
+Matrix<T> &Matrix<T>::operator*=(const Matrix &matr)
+{
+    assert(m_cols == matr.m_rows);
+
+    Matrix<T> temp = Transposing();
+
+    auto mul_func = [&](int i, int j)
+    {
+        T new_el = 0;
+        for (size_t r = 0; r < temp.m_cols; ++r)
+            new_el += temp.m_matr[r][i] * matr.m_matr[r][j];
+
+        return new_el;
+    };
+    ForEach(mul_func);
+
+    return *this;
+}
+
+template <typename T>
+Matrix<T> &Matrix<T>::operator*=(T val)
+{
+    auto mul_fnc = [&](int i, int j) { return m_matr[i][j] * val; };
+    ForEach(mul_fnc);
+
+    return *this;
+}
+
+template <typename T>
+Matrix<T> &Matrix<T>::Transpose()
+{
+    if (m_rows == m_cols)
+        return Transpose_Quad();
+
+    Matrix<T> temp{m_cols, m_rows, [&](int i, int j) { return m_matr[j][i]; }};
+
+    Swap(*this, temp);
+
+    return *this;
+}
+
+template <typename T>
+Matrix<T> Matrix<T>::Transposing() const
+{
+    return Matrix<T>(m_cols, m_rows, [&](int i, int j) { return m_matr[j][i]; });
+}
+
+template <typename T>
+Matrix<T> &Matrix<T>::Transpose_Quad()
+{
+    for (size_t i = 0; i < m_cols; ++i)
+        for (size_t j = i + 1; j < m_cols; ++j)
+            std::swap(m_matr[i][j], m_matr[j][i]);
+
+    return *this;
+}
+
+
+template <typename T>
+int Matrix<T>::FindNonZero(size_t st_col) const
+{
+    for (size_t i = st_col + 1; i < m_cols; ++i)
+        if (!IsZero(m_matr[i][st_col]))
+            return i;
+
+    return -1;
+}
+
+template <typename T>
+long double Matrix<T>::Det() const
 {
     if (m_rows != m_cols)
-        throw std::invalid_argument("Trace: matrix must be square");
-    T sum = T(0);
+        return NAN;
+
+    if (!std::is_arithmetic_v<T>)
+        return NAN;
+
+    int sign = 1;
+    Matrix<T> tmp{*this};
+
+    for (size_t i = 0; i < m_rows - 1; ++i)
+    {
+        if (IsZero(tmp.m_matr[i][i]))
+        {
+            int non_z_line = tmp.FindNonZero(i);
+            if (non_z_line == -1)
+                return 0;
+
+            tmp.SwapLines(non_z_line, i);
+            sign = -sign;
+        }
+
+        T div = tmp.m_matr[i][i];
+        for (size_t j = i + 1; j < m_rows; ++j)
+            tmp.AddLineMVal(j, i, -static_cast<long double>(tmp.m_matr[j][i]) / div);
+    }
+
+    long double det = sign;
     for (size_t i = 0; i < m_rows; ++i)
-        sum += m_buffer[i * m_cols + i];
-    return sum;
+        det *= tmp.m_matr[i][i];
+
+    return det;
 }
 
-template<typename T>
-bool Matrix<T>::equal(const Matrix& other) const
+
+template <typename T>
+Matrix<T> Matrix<T>::Identity(size_t rows)
 {
-    if (m_rows != other.m_rows || m_cols != other.m_cols)
-        return false;
-    size_t total = m_rows * m_cols;
-    for (size_t i = 0; i < total; ++i) {
-        if (m_buffer[i] != other.m_buffer[i])
-            return false;
+    Matrix id(rows, rows, [](int i, int j) { return i == j; });
+    return id;
+}
+
+
+template <typename T>
+const T &Matrix<T>::At(size_t i, size_t j) const
+{
+    assert(i < m_rows);
+    assert(j < m_cols);
+    return m_matr[i][j];
+}
+
+template <typename T>
+typename Matrix<T>::Row_matr Matrix<T>::operator[](size_t i) const
+{
+    assert(i < m_rows);
+    return Row_matr{m_cols, m_matr[i]};
+}
+
+template <typename T>
+typename Matrix<T>::Row_matr Matrix<T>::operator[](size_t i)
+{
+    assert(i < m_rows);
+    return Row_matr{m_cols, m_matr[i]};
+}
+
+
+template <typename T>
+void Matrix<T>::SwapLines(size_t lhs, size_t rhs)
+{
+    assert(lhs < m_rows);
+    assert(rhs < m_rows);
+    std::swap(m_matr[lhs], m_matr[rhs]);
+}
+
+template <typename T>
+void Matrix<T>::AddLine(size_t dest_ind, size_t src_ind)
+{
+    assert(dest_ind < m_rows);
+    assert(src_ind < m_rows);
+
+    for (int i = 0; i < m_cols; ++i)
+        m_matr[dest_ind][i] += m_matr[src_ind][i];
+}
+
+template <typename T>
+void Matrix<T>::AddLineMVal(size_t dest_ind, size_t src_ind, long double val)
+{
+    assert(dest_ind < m_rows);
+    assert(src_ind < m_rows);
+
+    for (size_t i = 0; i < m_cols; ++i)
+        m_matr[dest_ind][i] += val * m_matr[src_ind][i];
+}
+
+template <typename T>
+void Matrix<T>::MulLine(size_t line, long double val)
+{
+    assert(line < m_rows);
+
+    for (int i = 0; i < m_cols; ++i)
+        m_matr[line][i] *= val;
+}
+
+template <typename T>
+Matrix<T>::~Matrix()
+{
+    for (size_t i = 0; i < m_rows; ++i)
+        delete[] m_matr[i];
+
+    delete[] m_matr;
+    m_matr = nullptr;
+    m_rows = m_cols = 0;
+}
+
+
+template <typename T>
+bool Matrix<T>::IsEq(const Matrix &matr) const
+{
+    if (std::is_arithmetic_v<T>)
+    {
+        for (size_t i = 0; i < m_rows; ++i)
+            for (size_t j = 0; j < m_cols; ++j)
+                if (!IsZero(m_matr[i][j] - matr.m_matr[i][j]))
+                    return false;
+    }
+    else
+    {
+        for (size_t i = 0; i < m_rows; ++i)
+            for (size_t j = 0; j < m_cols; ++j)
+                if (m_matr[i][j] != matr.m_matr[i][j])
+                    return false;
     }
     return true;
 }
 
-template<typename T>
-bool Matrix<T>::less(const Matrix& other) const
+template <typename T>
+void Matrix<T>::Dump(std::ostream &ost) const
 {
-    if (m_rows != other.m_rows)
-        return m_rows < other.m_rows;
-    if (m_cols != other.m_cols)
-        return m_cols < other.m_cols;
-    size_t total = m_rows * m_cols;
-    for (size_t i = 0; i < total; ++i) {
-        if (m_buffer[i] != other.m_buffer[i])
-            return m_buffer[i] < other.m_buffer[i];
-    }
-    return false;
-}
-
-template<typename T>
-void Matrix<T>::dump(std::ostream& os) const {
-    for (size_t i = 0; i < m_rows; ++i) {
-        os << "[";
-        for (size_t j = 0; j < m_cols; ++j) {
-            os << m_buffer[i * m_cols + j];
-            if (j + 1 < m_cols) {
-                os << ", ";
-            }
-        }
-        os << "]\n";
-    }
-}
-
-template<typename T>
-Matrix<T>& Matrix<T>::negate()& {
-    size_t total = m_rows * m_cols;
-    for (size_t i = 0; i < total; ++i) {
-        m_buffer[i] = -m_buffer[i];
-    }
-    return *this;
-}
-
-template<typename T>
-Matrix<T>& Matrix<T>::transpose()&
-{
-    Matrix temp(m_cols, m_rows);
-    for (size_t i = 0; i < m_rows; ++i) {
+    for (size_t i = 0; i < m_rows; ++i)
+    {
+        ost << "|| ";
         for (size_t j = 0; j < m_cols; ++j)
-            temp[j][i] = (*this)[i][j];
+            ost << m_matr[i][j] << (j == m_cols - 1 ? "" : ", ");
+        ost << " ||\n";
     }
-    *this = std::move(temp);
-    return *this;
 }
 
-template<typename T>
-Matrix<T> Matrix<T>::multiply(const Matrix& other) const
+template <typename T>
+void Matrix<T>::Alloc()
 {
-    if (m_cols != other.m_rows)
-        throw std::invalid_argument("Matrix multiplication: incompatible sizes");
-    Matrix result(m_rows, other.m_cols, T(0));
-    for (size_t i = 0; i < m_rows; ++i) {
-        for (size_t k = 0; k < m_cols; ++k) {
-            T aik = (*this)[i][k];
-            for (size_t j = 0; j < other.m_cols; ++j) {
-                result[i][j] += aik * other[k][j];
-            }
-        }
-    }
-    return result;
+    m_matr = new T *[m_rows];
+
+    for (size_t i = 0; i < m_rows; ++i)
+        m_matr[i] = new T[m_cols];
 }
 
-template<typename T>
-Matrix<T>& Matrix<T>::multiply_assign(const Matrix& other)
+template <typename T>
+template <typename It>
+void Matrix<T>::FillByIt(It begin, It end)
 {
-    *this = multiply(other);
-    return *this;
+    size_t i = 0, size = m_rows * m_cols;
+
+    for (It it = begin; it != end && i < size; ++it, ++i)
+        m_matr[i / m_cols][i % m_cols] = *it;
 }
 
-template<typename T>
-Matrix<T> Matrix<T>::scalar_multiply(const T& scalar) const
+template <typename T>
+void Matrix<T>::Swap(Matrix &lhs, Matrix &rhs)
 {
-    Matrix result(m_rows, m_cols);
-    size_t total = m_rows * m_cols;
-    for (size_t i = 0; i < total; ++i)
-        result.m_buffer[i] = m_buffer[i] * scalar;
-    return result;
+    std::swap(lhs.m_matr, rhs.m_matr);
+    std::swap(lhs.m_cols, rhs.m_cols);
+    std::swap(lhs.m_rows, rhs.m_rows);
 }
 
-template<typename T>
-Matrix<T>& Matrix<T>::scalar_multiply_assign(const T& scalar)
+template <typename T>
+void Matrix<T>::Copy(Matrix &dst, const Matrix &src)
 {
-    size_t total = m_rows * m_cols;
-    for (size_t i = 0; i < total; ++i)
-        m_buffer[i] *= scalar;
-    return *this;
+    assert(dst.m_rows == src.m_rows);
+    assert(dst.m_cols == src.m_cols);
+
+    for (size_t i = 0; i < dst.m_rows; ++i)
+        for (size_t j = 0; j < dst.m_cols; ++j)
+            dst.m_matr[i][j] = src.m_matr[i][j];
 }
 
-template<typename T>
-Matrix<T> Matrix<T>::add(const Matrix& other) const
+template <typename T>
+bool operator==(const Matrix<T> &lhs, const Matrix<T> &rhs)
 {
-    if (m_rows != other.m_rows || m_cols != other.m_cols)
-        throw std::invalid_argument("Matrix addition: incompatible sizes");
-    Matrix result(m_rows, m_cols);
-    size_t total = m_rows * m_cols;
-    for (size_t i = 0; i < total; ++i)
-        result.m_buffer[i] = m_buffer[i] + other.m_buffer[i];
-    return result;
+    return lhs.IsEq(rhs);
 }
 
-template<typename T>
-Matrix<T>& Matrix<T>::add_assign(const Matrix& other)
+template <typename T>
+Matrix<T> operator+(const Matrix<T> &lhs, const Matrix<T> &rhs)
 {
-    if (m_rows != other.m_rows || m_cols != other.m_cols)
-        throw std::invalid_argument("Matrix addition: incompatible sizes");
-    size_t total = m_rows * m_cols;
-    for (size_t i = 0; i < total; ++i)
-        m_buffer[i] += other.m_buffer[i];
-    return *this;
+    Matrix<T> temp{lhs};
+    temp += rhs;
+    return temp;
 }
 
-template<typename T>
-T Matrix<T>::determinant() const
+template <typename T>
+Matrix<T> operator-(const Matrix<T> &lhs, const Matrix<T> &rhs)
 {
-    if (m_rows != m_cols)
-        throw std::invalid_argument("Determinant: matrix must be square");
-    size_t n = m_rows;
-    if (n == 1) return m_buffer[0];
-    if (n == 2) return m_buffer[0] * m_buffer[3] - m_buffer[1] * m_buffer[2];
-    Matrix temp = *this;
-    T det = T(1);
-    for (size_t col = 0; col < n; ++col) {
-        size_t pivot = col;
-        for (size_t row = col + 1; row < n; ++row) {
-            if (std::abs(temp[row][col]) > std::abs(temp[pivot][col]))
-                pivot = row;
-        }
-        if (temp[pivot][col] == T(0))
-            return T(0);
-        if (pivot != col) {
-            temp.swap_rows(col, pivot);
-            det = -det;
-        }
-        for (size_t row = col + 1; row < n; ++row) {
-            T factor = temp[row][col] / temp[col][col];
-            for (size_t j = col + 1; j < n; ++j)
-                temp[row][j] -= factor * temp[col][j];
-        }
-    }
-    for (size_t i = 0; i < n; ++i)
-        det *= temp[i][i];
-    return det;
+    Matrix<T> temp{lhs};
+    temp -= rhs;
+    return temp;
 }
 
-template<typename T>
-void Matrix<T>::swap_rows(size_t row1, size_t row2)
+template <typename T>
+Matrix<T> operator*(const Matrix<T> &lhs, const Matrix<T> &rhs)
 {
-    if (row1 >= m_rows || row2 >= m_rows)
-        throw std::out_of_range("swap_rows: index out of range");
-    if (row1 == row2) return;
-    for (size_t j = 0; j < m_cols; ++j)
-        std::swap((*this)[row1][j], (*this)[row2][j]);
+    Matrix<T> temp{lhs};
+    temp *= rhs;
+    return temp;
 }
 
-template<typename T>
-class Matrix<T>::const_iterator {
-private:
-    T* m_ptr;
-    
-public:
-    using iterator_category = std::forward_iterator_tag;
-    using value_type = T;
-    using difference_type = std::ptrdiff_t;
-    using pointer = const T*;
-    using reference = const T&;
-
-    const_iterator(T* ptr = nullptr) : m_ptr(ptr) {}
-
-    reference operator*() const { return *m_ptr; }
-    pointer operator->() const { return m_ptr; }
-
-    const_iterator& operator++() { ++m_ptr; return *this; }
-    const_iterator operator++(int) { 
-        const_iterator tmp = *this; 
-        ++m_ptr; 
-        return tmp; 
-    }
-
-    bool operator==(const const_iterator& other) const { 
-        return m_ptr == other.m_ptr; 
-    }
-    bool operator!=(const const_iterator& other) const { 
-        return m_ptr != other.m_ptr; 
-    }
-};
-
-template<typename T>
-class Matrix<T>::iterator {
-private:
-    T* m_ptr;
-    
-public:
-    using iterator_category = std::forward_iterator_tag;
-    using value_type = T;
-    using difference_type = std::ptrdiff_t;
-    using pointer = T*;
-    using reference = T&;
-
-    iterator(T* ptr = nullptr) : m_ptr(ptr) {}
-
-    reference operator*() const { return *m_ptr; }
-    pointer operator->() const { return m_ptr; }
-
-    iterator& operator++() { ++m_ptr; return *this; }
-    iterator operator++(int) { 
-        iterator tmp = *this; 
-        ++m_ptr; 
-        return tmp; 
-    }
-
-    bool operator==(const iterator& other) const { 
-        return m_ptr == other.m_ptr; 
-    }
-    bool operator!=(const iterator& other) const { 
-        return m_ptr != other.m_ptr; 
-    }
-    operator const_iterator() const {
-        return const_iterator(m_ptr);
-    }
-};
-
-template<typename T>
-typename Matrix<T>::iterator Matrix<T>::begin() {
-    return iterator(m_buffer);
+template <typename T>
+Matrix<T> operator*(const Matrix<T> &lhs, T val)
+{
+    Matrix<T> temp{lhs};
+    temp *= val;
+    return temp;
 }
 
-template<typename T>
-typename Matrix<T>::iterator Matrix<T>::end() {
-    return iterator(m_buffer + m_rows * m_cols);
+template <typename T>
+Matrix<T> operator*(T val, const Matrix<T> &rhs)
+{
+    return rhs * val;
 }
 
-template<typename T>
-typename Matrix<T>::const_iterator Matrix<T>::begin() const {
-    return const_iterator(m_buffer);
+template <typename T>
+std::ostream &operator<<(std::ostream &ost, const Matrix<T> &matr)
+{
+    matr.Dump(ost);
+    return ost;
 }
 
-template<typename T>
-typename Matrix<T>::const_iterator Matrix<T>::end() const {
-    return const_iterator(m_buffer + m_rows * m_cols);
+template <typename T>
+std::istream &operator>>(std::istream &ist, Matrix<T> &matr)
+{
+    size_t rows = 0, cols = 0;
+    ist >> rows >> cols;
+
+    matr = Matrix<T>{rows, cols, [&](int, int)
+    {
+        T val{};
+        ist >> val;
+        return val;
+    }};
+
+    return ist;
 }
 
-template<typename T>
-typename Matrix<T>::const_iterator Matrix<T>::cbegin() const {
-    return const_iterator(m_buffer);
+template <typename T>
+std::istream &InputQuadr(std::istream &ist, Matrix<T> &matr)
+{
+    size_t size = 0;
+    ist >> size;
+
+    matr = Matrix<T>{size, size, [&](int, int)
+    {
+        T val{};
+        ist >> val;
+        return val;
+    }};
+
+    return ist;
 }
 
-template<typename T>
-typename Matrix<T>::const_iterator Matrix<T>::cend() const {
-    return const_iterator(m_buffer + m_rows * m_cols);
-}
-
+#endif // MATRIX_IMPL_HPP
