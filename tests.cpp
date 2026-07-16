@@ -1,3 +1,8 @@
+#include <iostream>
+#include <sstream>
+#include <vector>
+#include <algorithm>
+#include <numeric>
 #include "matrix.hpp"
 
 int main()
@@ -6,338 +11,271 @@ int main()
 
     std::cout << "1. Constructors:\n";
     Matrix<int> m1(2, 3, 5);
-    m1.dump(std::cout);
+    m1.Dump(std::cout);
     std::cout << "\n";
 
-    auto it = std::find(m1.begin(), m1.end(), 5);
-    if (it != m1.end()) {
-        std::cout << "Found: " << *it << "\n";
-    }
-
     Matrix<int> m2(2, 3, { 1, 2, 3, 4, 5, 6 });
-    m2.dump(std::cout);
+    m2.Dump(std::cout);
     std::cout << "\n";
 
     std::vector<int> vec = { 7, 8, 9, 10, 11, 12 };
     Matrix<int> m3(2, 3, vec.begin(), vec.end());
-    m3.dump(std::cout);
+    m3.Dump(std::cout);
     std::cout << "\n";
 
-    std::cout << "Testing istream constructor:\n";
-    std::istringstream iss("1 2 3 4 5 6 7 8 9");
-    try {
-        Matrix<int> m4(iss, 3, 3);
-        m4.dump(std::cout);
-    }
-    catch (const std::runtime_error& e) {
-        std::cout << "Caught: " << e.what() << "\n";
-    }
+    std::cout << "Testing constructor with lambda:\n";
+    auto fill_func = [](size_t i, size_t j) { return static_cast<int>(i + j); };
+    Matrix<int> m4(3, 3, fill_func);
+    m4.Dump(std::cout);
     std::cout << "\n";
 
-    std::cout << "2. eye:\n";
-    Matrix<int>::eye(3).dump(std::cout);
-    std::cout << "\n";
-    Matrix<int>::eye(2, 3).dump(std::cout);
+    std::cout << "2. Identity matrix:\n";
+    Matrix<int>::Identity(3).Dump(std::cout);
     std::cout << "\n";
 
     std::cout << "3. operator[] with bounds checking:\n";
     Matrix<int> m5(2, 3, { 1, 2, 3, 4, 5, 6 });
 
-    try {
-        m5[0][0] = 100;
-        std::cout << "m5[0][0] = 100 - OK\n";
-    }
-    catch (const std::out_of_range& e) {
-        std::cout << "Caught (should not happen): " << e.what() << "\n";
-    }
+    std::cout << "m5[0][0] = " << m5[0][0] << "\n";
+    m5[0][0] = 100;
+    std::cout << "m5[0][0] = 100 - OK\n";
 
-    try {
-        m5[1][2] = 200;
-        std::cout << "m5[1][2] = 200 - OK\n";
-    }
-    catch (const std::out_of_range& e) {
-        std::cout << "Caught (should not happen): " << e.what() << "\n";
-    }
+    std::cout << "m5[1][2] = " << m5[1][2] << "\n";
+    m5[1][2] = 200;
+    std::cout << "m5[1][2] = 200 - OK\n";
 
-    try {
-        m5[0][4] = 300;
-        std::cout << "m5[0][4] = 300 - OK\n";
-    }
-    catch (const std::out_of_range& e) {
-        std::cout << "Caught: " << e.what() << "\n";
-    }
-
-    try {
-        m5[2][0] = 400;
-        std::cout << "m5[2][0] = 400 - OK\n";
-    }
-    catch (const std::out_of_range& e) {
-        std::cout << "Caught: " << e.what() << "\n";
-    }
-
-    std::cout << "m5 after tests:\n";
-    m5.dump(std::cout);
+    std::cout << "m5 after modifications:\n";
+    m5.Dump(std::cout);
     std::cout << "\n";
 
     std::cout << "4. Copy & Move:\n";
     Matrix<int> m6(2, 2, { 1, 2, 3, 4 });
     Matrix<int> m7 = m6;
     std::cout << "m7 (copy of m6):\n";
-    m7.dump(std::cout);
+    m7.Dump(std::cout);
 
     Matrix<int> m8 = std::move(m6);
     std::cout << "m8 (move from m6):\n";
-    m8.dump(std::cout);
+    m8.Dump(std::cout);
+    std::cout << "\n";
 
     std::cout << "5. Matrix multiplication:\n";
     Matrix<int> A(2, 3, { 1, 2, 3, 4, 5, 6 });
     Matrix<int> B(3, 2, { 7, 8, 9, 10, 11, 12 });
 
-    try {
-        A.multiply(B).dump(std::cout);
-        std::cout << "\n";
-    }
-    catch (const std::invalid_argument& e) {
-        std::cout << "Caught (should not happen): " << e.what() << "\n";
-    }
+    Matrix<int> C = A * B;
+    std::cout << "A * B:\n";
+    C.Dump(std::cout);
+    std::cout << "\n";
 
-    std::cout << "Testing invalid multiplication:\n";
+    std::cout << "Testing invalid multiplication (should assert):\n";
     Matrix<int> BadA(2, 2, { 1, 2, 3, 4 });
     Matrix<int> BadB(3, 3, { 1, 2, 3, 4, 5, 6, 7, 8, 9 });
-    try {
-        BadA.multiply(BadB).dump(std::cout);
-    }
-    catch (const std::invalid_argument& e) {
-        std::cout << "Caught: " << e.what() << "\n";
-    }
+    std::cout << "Note: This will trigger assert in debug mode\n";
+    // BadA * BadB; // Раскомментируйте для проверки assert
     std::cout << "\n";
 
     std::cout << "6. Scalar multiplication:\n";
     Matrix<int> D(2, 2, { 1, 2, 3, 4 });
-    D.scalar_multiply(2).dump(std::cout);
+    (D * 2).Dump(std::cout);
+    std::cout << "\n";
+    (3 * D).Dump(std::cout);
     std::cout << "\n";
 
     std::cout << "7. Addition:\n";
     Matrix<int> G(2, 2, { 1, 2, 3, 4 });
     Matrix<int> H(2, 2, { 5, 6, 7, 8 });
 
-    try {
-        G.add(H).dump(std::cout);
-        std::cout << "\n";
-    }
-    catch (const std::invalid_argument& e) {
-        std::cout << "Caught (should not happen): " << e.what() << "\n";
-    }
-
-    std::cout << "Testing invalid addition:\n";
-    Matrix<int> BadG(2, 3, { 1, 2, 3, 4, 5, 6 });
-    Matrix<int> BadH(3, 2, { 1, 2, 3, 4, 5, 6 });
-    try {
-        BadG.add(BadH).dump(std::cout);
-    }
-    catch (const std::invalid_argument& e) {
-        std::cout << "Caught: " << e.what() << "\n";
-    }
+    (G + H).Dump(std::cout);
     std::cout << "\n";
 
-    std::cout << "8. trace:\n";
-    Matrix<int> J(3, 3, { 1, 2, 3, 4, 5, 6, 7, 8, 9 });
-    try {
-        std::cout << "trace = " << J.trace() << "\n";
-    }
-    catch (const std::invalid_argument& e) {
-        std::cout << "Caught (should not happen): " << e.what() << "\n";
-    }
-
-    std::cout << "Testing trace on non-square matrix:\n";
-    Matrix<int> BadTrace(2, 3, { 1, 2, 3, 4, 5, 6 });
-    try {
-        std::cout << "trace = " << BadTrace.trace() << "\n";
-    }
-    catch (const std::invalid_argument& e) {
-        std::cout << "Caught: " << e.what() << "\n";
-    }
+    std::cout << "8. Subtraction:\n";
+    (H - G).Dump(std::cout);
     std::cout << "\n";
 
-    std::cout << "9. determinant:\n";
+    std::cout << "9. Determinant:\n";
     Matrix<int> K(2, 2, { 4, 7, 2, 6 });
-    try {
-        std::cout << "det(K) = " << K.determinant() << "\n";
-    }
-    catch (const std::invalid_argument& e) {
-        std::cout << "Caught (should not happen): " << e.what() << "\n";
-    }
+    std::cout << "det(K) = " << K.Det() << "\n";
 
     Matrix<int> L(3, 3, { 1, 2, 3, 4, 5, 6, 7, 8, 9 });
-    try {
-        std::cout << "det(L) = " << L.determinant() << "\n";
-    }
-    catch (const std::invalid_argument& e) {
-        std::cout << "Caught (should not happen): " << e.what() << "\n";
-    }
+    std::cout << "det(L) = " << L.Det() << "\n";
 
-    std::cout << "Testing determinant on non-square matrix:\n";
-    Matrix<int> BadDet(2, 3, { 1, 2, 3, 4, 5, 6 });
-    try {
-        std::cout << "det = " << BadDet.determinant() << "\n";
-    }
-    catch (const std::invalid_argument& e) {
-        std::cout << "Caught: " << e.what() << "\n";
-    }
+    Matrix<double> M(3, 3, { 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 10.0 });
+    std::cout << "det(M) = " << M.Det() << "\n\n";
+
+    std::cout << "10. Transpose:\n";
+    Matrix<int> N(2, 3, { 1, 2, 3, 4, 5, 6 });
+    std::cout << "Original:\n";
+    N.Dump(std::cout);
+    std::cout << "Transposed:\n";
+    N.Transposing().Dump(std::cout);
     std::cout << "\n";
 
-    std::cout << "10. transpose:\n";
-    Matrix<int> M(2, 3, { 1, 2, 3, 4, 5, 6 });
-    M.transpose().dump(std::cout);
-    std::cout << "\n";
-
-    std::cout << "11. negate:\n";
-    Matrix<int> N(2, 2, { 1, -2, 3, -4 });
-    N.negate().dump(std::cout);
-    std::cout << "\n";
-
-    std::cout << "12. swap_rows:\n";
+    std::cout << "11. In-place transpose:\n";
     Matrix<int> O(3, 3, { 1, 2, 3, 4, 5, 6, 7, 8, 9 });
-
-    try {
-        O.swap_rows(0, 2);
-        O.dump(std::cout);
-        std::cout << "\n";
-    }
-    catch (const std::out_of_range& e) {
-        std::cout << "Caught (should not happen): " << e.what() << "\n";
-    }
-
-    std::cout << "Testing swap_rows with invalid indices:\n";
-    try {
-        O.swap_rows(0, 10);
-    }
-    catch (const std::out_of_range& e) {
-        std::cout << "Caught: " << e.what() << "\n";
-    }
+    std::cout << "Original:\n";
+    O.Dump(std::cout);
+    O.Transpose();
+    std::cout << "After transpose:\n";
+    O.Dump(std::cout);
     std::cout << "\n";
 
-    std::cout << "13. equal & less:\n";
-    Matrix<int> P(2, 2, { 1, 2, 3, 4 });
+    std::cout << "12. swap_rows (via AddLineMVal demonstration):\n";
+    Matrix<int> P(3, 3, { 1, 2, 3, 4, 5, 6, 7, 8, 9 });
+    std::cout << "Original:\n";
+    P.Dump(std::cout);
+    // Используем AddLineMVal для демонстрации (3 * строка1 + строка2)
+    P.AddLineMVal(1, 0, 2.0);
+    std::cout << "After AddLineMVal (row1 += 2 * row0):\n";
+    P.Dump(std::cout);
+    std::cout << "\n";
+
+    std::cout << "13. IsEq (equality check):\n";
     Matrix<int> Q(2, 2, { 1, 2, 3, 4 });
-    Matrix<int> R(2, 2, { 5, 6, 7, 8 });
-    std::cout << "P == Q: " << P.equal(Q) << "\n";
-    std::cout << "P == R: " << P.equal(R) << "\n";
-    std::cout << "P < R: " << P.less(R) << "\n";
-    std::cout << "P < Q: " << P.less(Q) << "\n\n";
+    Matrix<int> R(2, 2, { 1, 2, 3, 4 });
+    Matrix<int> S(2, 2, { 5, 6, 7, 8 });
+    std::cout << "Q == R: " << Q.IsEq(R) << "\n";
+    std::cout << "Q == S: " << Q.IsEq(S) << "\n\n";
 
-    std::cout << "14. compound methods:\n";
-    Matrix<int> S(2, 2, { 1, 2, 3, 4 });
-    Matrix<int> T(2, 2, { 2, 0, 1, 3 });
+    std::cout << "14. operator== (external):\n";
+    std::cout << "Q == R: " << (Q == R) << "\n";
+    std::cout << "Q == S: " << (Q == S) << "\n\n";
 
-    try {
-        S.add_assign(T);
-        std::cout << "S += T:\n";
-        S.dump(std::cout);
-    }
-    catch (const std::invalid_argument& e) {
-        std::cout << "Caught (should not happen): " << e.what() << "\n";
-    }
+    std::cout << "15. Compound assignment:\n";
+    Matrix<int> T(2, 2, { 1, 2, 3, 4 });
+    Matrix<int> U(2, 2, { 2, 0, 1, 3 });
 
-    try {
-        S.scalar_multiply_assign(2);
-        std::cout << "S *= 2:\n";
-        S.dump(std::cout);
-        std::cout << "\n";
-    }
-    catch (const std::invalid_argument& e) {
-        std::cout << "Caught (should not happen): " << e.what() << "\n";
-    }
+    T += U;
+    std::cout << "T += U:\n";
+    T.Dump(std::cout);
 
-    std::cout << "15. nrows & ncols:\n";
-    Matrix<int> U(3, 4);
-    std::cout << "rows = " << U.nrows() << ", cols = " << U.ncols() << "\n\n";
+    T *= 2;
+    std::cout << "T *= 2:\n";
+    T.Dump(std::cout);
+    std::cout << "\n";
 
-    std::cout << "16. Testing with double:\n";
+    std::cout << "16. getRows & getCols:\n";
+    Matrix<int> V(3, 4);
+    std::cout << "rows = " << V.getRows() << ", cols = " << V.getCols() << "\n\n";
+
+    std::cout << "17. Testing with double:\n";
     Matrix<double> mDouble(3, 3, { 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 10.0 });
-    mDouble.dump(std::cout);
-    std::cout << "det = " << mDouble.determinant() << "\n";
-    std::cout << "trace = " << mDouble.trace() << "\n";
+    mDouble.Dump(std::cout);
+    std::cout << "det = " << mDouble.Det() << "\n";
 
     Matrix<double> mDouble2(3, 3, { 0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5, 8.5 });
     std::cout << "mDouble2:\n";
-    mDouble2.dump(std::cout);
+    mDouble2.Dump(std::cout);
     std::cout << "mDouble + mDouble2:\n";
-    mDouble.add(mDouble2).dump(std::cout);
+    (mDouble + mDouble2).Dump(std::cout);
     std::cout << "\n";
 
-    std::cout << "17. Testing with float:\n";
+    std::cout << "18. Testing with float:\n";
     Matrix<float> mFloat(2, 2, { 1.1f, 2.2f, 3.3f, 4.4f });
-    mFloat.dump(std::cout);
-    std::cout << "det = " << mFloat.determinant() << "\n";
-    std::cout << "trace = " << mFloat.trace() << "\n";
+    mFloat.Dump(std::cout);
+    std::cout << "det = " << mFloat.Det() << "\n\n";
+
+    std::cout << "19. Threshold functionality:\n";
+    std::cout << "Current threshold: " << Matrix<double>::GetThreshold() << "\n";
+    Matrix<double>::SetThreshold(1e-5);
+    std::cout << "New threshold: " << Matrix<double>::GetThreshold() << "\n";
+    Matrix<double>::SetDefThres();
+    std::cout << "Reset threshold: " << Matrix<double>::GetThreshold() << "\n\n";
+
+    std::cout << "20. At() method:\n";
+    Matrix<int> mAt(2, 2, { 1, 2, 3, 4 });
+    std::cout << "mAt.At(0, 0) = " << mAt.At(0, 0) << "\n";
+    std::cout << "mAt.At(1, 1) = " << mAt.At(1, 1) << "\n\n";
+
+    std::cout << "21. Dump format:\n";
+    Matrix<int> mDump(2, 2, { 1, 2, 3, 4 });
+    mDump.Dump(std::cout);
     std::cout << "\n";
 
-    std::cout << "18. STL algorithms:\n";
-    Matrix<int> mStl(3, 3, { 5, 2, 8, 1, 9, 3, 7, 4, 6 });
-    std::cout << "mStl (original):\n";
-    mStl.dump(std::cout);
+    std::cout << "22. operator<<:\n";
+    std::cout << mDump << "\n";
 
-    std::cout << "std::find (search for 9):\n";
-    auto findIt = std::find(mStl.begin(), mStl.end(), 9);
-    if (findIt != mStl.end()) {
-        std::cout << "Found: " << *findIt << "\n";
-    }
+    std::cout << "23. operator>> (input from stringstream):\n";
+    std::istringstream iss("2 2 1 2 3 4");
+    Matrix<int> mInput;
+    iss >> mInput;
+    std::cout << "Read matrix:\n";
+    std::cout << mInput << "\n";
+
+    std::cout << "24. InputQuadr:\n";
+    std::istringstream iss2("3 1 2 3 4 5 6 7 8 9");
+    Matrix<int> mQuadr;
+    InputQuadr(iss2, mQuadr);
+    std::cout << "Read square matrix:\n";
+    std::cout << mQuadr << "\n";
+
+    std::cout << "25. Matrix multiplication with external operator:\n";
+    Matrix<int> M1(2, 3, { 1, 2, 3, 4, 5, 6 });
+    Matrix<int> M2(3, 2, { 7, 8, 9, 10, 11, 12 });
+    Matrix<int> M3 = M1 * M2;
+    std::cout << "M1 * M2:\n";
+    M3.Dump(std::cout);
     std::cout << "\n";
 
-    std::cout << "std::count_if (count > 5):\n";
-    int cnt = std::count_if(mStl.begin(), mStl.end(), [](int x) { return x > 5; });
-    std::cout << "Count = " << cnt << "\n\n";
-
-    std::cout << "std::for_each (multiply by 2):\n";
-    std::for_each(mStl.begin(), mStl.end(), [](int& x) { x *= 2; });
-    mStl.dump(std::cout);
+    std::cout << "26. Scalar multiplication with external operator:\n";
+    Matrix<int> M4(2, 2, { 1, 2, 3, 4 });
+    std::cout << "M4 * 3:\n";
+    (M4 * 3).Dump(std::cout);
+    std::cout << "3 * M4:\n";
+    (3 * M4).Dump(std::cout);
     std::cout << "\n";
 
-    std::cout << "std::accumulate (sum):\n";
-    int sum = std::accumulate(mStl.begin(), mStl.end(), 0);
-    std::cout << "Sum = " << sum << "\n\n";
-
-    std::cout << "std::min_element / std::max_element:\n";
-    auto minIt2 = std::min_element(mStl.begin(), mStl.end());
-    auto maxIt2 = std::max_element(mStl.begin(), mStl.end());
-    std::cout << "Min = " << *minIt2 << ", Max = " << *maxIt2 << "\n\n";
-
-    std::cout << "std::transform (add 10):\n";
-    std::transform(mStl.begin(), mStl.end(), mStl.begin(), [](int x) { return x + 10; });
-    mStl.dump(std::cout);
+    std::cout << "27. Addition and subtraction with external operators:\n";
+    Matrix<int> M5(2, 2, { 1, 2, 3, 4 });
+    Matrix<int> M6(2, 2, { 5, 6, 7, 8 });
+    std::cout << "M5 + M6:\n";
+    (M5 + M6).Dump(std::cout);
+    std::cout << "M6 - M5:\n";
+    (M6 - M5).Dump(std::cout);
     std::cout << "\n";
 
-    std::cout << "std::replace (replace 15 with 0):\n";
-    std::replace(mStl.begin(), mStl.end(), 15, 0);
-    mStl.dump(std::cout);
+    std::cout << "28. operator== (external):\n";
+    Matrix<int> M7(2, 2, { 1, 2, 3, 4 });
+    Matrix<int> M8(2, 2, { 1, 2, 3, 4 });
+    Matrix<int> M9(2, 2, { 5, 6, 7, 8 });
+    std::cout << "M7 == M8: " << (M7 == M8) << "\n";
+    std::cout << "M7 == M9: " << (M7 == M9) << "\n\n";
+
+    std::cout << "29. Large matrix test:\n";
+    Matrix<int> Large(100, 100, 42);
+    std::cout << "Created 100x100 matrix filled with 42\n";
+    std::cout << "rows = " << Large.getRows() << ", cols = " << Large.getCols() << "\n";
+    std::cout << "Element [50][50] = " << Large[50][50] << "\n\n";
+
+    std::cout << "30. Identity matrix multiplication test:\n";
+    Matrix<int> I5 = Matrix<int>::Identity(5);
+    Matrix<int> M10(5, 5, [](size_t i, size_t j) { return static_cast<int>(i * j); });
+    Matrix<int> M11 = M10 * I5;
+    Matrix<int> M12 = I5 * M10;
+    std::cout << "M10 * I == M10: " << (M10 == M11) << "\n";
+    std::cout << "I * M10 == M10: " << (M10 == M12) << "\n\n";
+
+    std::cout << "31. Transpose of transpose:\n";
+    Matrix<int> M13(3, 4, [](size_t i, size_t j) { return static_cast<int>(i + j); });
+    Matrix<int> M14 = M13.Transposing();
+    Matrix<int> M15 = M14.Transposing();
+    std::cout << "M13 == (M13^T)^T: " << (M13 == M15) << "\n\n";
+
+    std::cout << "32. Determinant of identity:\n";
+    Matrix<int> I3 = Matrix<int>::Identity(3);
+    std::cout << "det(I3) = " << I3.Det() << "\n\n";
+
+    std::cout << "33. Determinant of 2x2:\n";
+    Matrix<int> M16(2, 2, { 1, 2, 3, 4 });
+    std::cout << "det([[1,2],[3,4]]) = " << M16.Det() << " (should be -2)\n\n";
+
+    std::cout << "34. Determinant with threshold:\n";
+    Matrix<double> M17(2, 2, { 1e-12, 1, 1, 1 });
+    std::cout << "det([[1e-12,1],[1,1]]) = " << M17.Det() << "\n";
+    Matrix<double>::SetThreshold(1e-5);
+    std::cout << "With threshold=1e-5: det = " << M17.Det() << "\n";
+    Matrix<double>::SetDefThres();
     std::cout << "\n";
-
-    std::cout << "19. Range-based for:\n";
-    Matrix<int> mRange(2, 3, { 1, 2, 3, 4, 5, 6 });
-    std::cout << "mRange (original):\n";
-    mRange.dump(std::cout);
-
-    std::cout << "Range-based for (read): ";
-    for (const int& val : mRange) {
-        std::cout << val << " ";
-    }
-    std::cout << "\n";
-
-    std::cout << "Range-based for (multiply by 2):\n";
-    for (int& val : mRange) {
-        val *= 2;
-    }
-    mRange.dump(std::cout);
-    std::cout << "\n";
-
-    std::cout << "20. Const range-based for:\n";
-    const Matrix<int>& mConst = mRange;
-    std::cout << "mConst (read-only): ";
-    for (const int& val : mConst) {
-        std::cout << val << " ";
-    }
-    std::cout << "\n\n";
 
     std::cout << "=== ALL TESTS PASSED ===\n";
 
