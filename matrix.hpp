@@ -1,105 +1,135 @@
-#pragma once
+#ifndef MATRIX_HPP
+#define MATRIX_HPP
+
 #include <iostream>
-#include <sstream>
-#include <vector>
-#include <type_traits>
 #include <cmath>
-#include <algorithm>
-#include <numeric>
+#include <cassert>
+#include <type_traits>
 
-
-template<typename T>
+template <typename T>
 class Matrix
 {
     static_assert(std::is_arithmetic_v<T>,
         "Matrix can only be instantiated with arithmetic types");
-    T* m_buffer;
+
+private:
+    T **m_matr;
     size_t m_rows;
     size_t m_cols;
+    static long double threshold;
 
-    struct ProxyRow
+    struct Row_matr
     {
-        T* row;
-        size_t cols;
+        size_t m_cols;
+        T *m_row;
 
-        const T& operator[](size_t n) const
-        {
-            if (n >= cols)
-                throw std::out_of_range("ProxyRow::operator[]: column index out of range");
-            return row[n];
-        }
-
-        T& operator[](size_t n)
-        {
-            if (n >= cols) {
-                throw std::out_of_range("ProxyRow::operator[]: column index out of range");
-            }
-            return row[n];
-        }
+        Row_matr(size_t cols, T *row);
+        const T &operator[](size_t i) const;
+        T &operator[](size_t i);
+        Row_matr(const Row_matr &row_m) = default;
+        Row_matr &operator=(const Row_matr &row_m) = default;
     };
 
 public:
-    Matrix(size_t rows, size_t cols, T val = T{});
-    template<typename It>
+    Matrix(size_t rows, size_t cols);
+
+    template <typename It>
     Matrix(size_t rows, size_t cols, It begin, It end);
-    Matrix(size_t rows, size_t cols, std::initializer_list<T> list);
-    Matrix(std::istream& is, size_t rows, size_t cols);
-    static Matrix eye(size_t n, size_t m);
-    static Matrix eye(size_t n);
 
-    Matrix(const Matrix& rhs);
-    Matrix(Matrix&& rhs) noexcept;
+    Matrix(size_t rows, size_t cols, const std::initializer_list<T> &ilist);
 
-    Matrix& operator=(const Matrix& rhs);
-    Matrix& operator=(Matrix&& rhs) noexcept;
+    template <typename empl_func>
+    Matrix(size_t rows, size_t cols, empl_func fnc);
+
+    Matrix(const Matrix &matr);
+    Matrix(Matrix &&matr) noexcept;
+
+    Matrix &operator=(const Matrix &matr);
+    Matrix &operator=(Matrix &&matr) noexcept;
+
+    Matrix &operator+=(const Matrix &matr);
+    Matrix &operator-=(const Matrix &matr);
+    Matrix &operator*=(const Matrix &matr);
+    Matrix &operator*=(T val);
+
+    Matrix &Transpose();
+    Matrix Transposing() const;
+
+    long double Det() const;
+
+    size_t getCols() const { return m_cols; }
+    size_t getRows() const { return m_rows; }
+
+    static Matrix Identity(size_t rows);
+
+    const T &At(size_t i, size_t j) const;
+
+    Row_matr operator[](size_t i) const;
+    Row_matr operator[](size_t i);
 
     ~Matrix();
 
-    size_t nrows() const { return m_rows; }
-    size_t ncols() const { return m_cols; }
+    void AddLineMVal(size_t dest_ind, size_t src_ind, long double val);
 
-    T trace() const;
-    bool equal(const Matrix& other) const;
-    bool less(const Matrix& other) const;
-    void dump(std::ostream& os) const;
+    bool IsEq(const Matrix &matr) const;
 
-    Matrix& negate()&;
-    Matrix& transpose()&;
+    void Dump(std::ostream &ost) const;
 
-    ProxyRow operator[](size_t n) {
-        if (n >= m_rows)
-            throw std::out_of_range("Matrix::operator[]: row index out of range");
-        return ProxyRow{ m_buffer + n * m_cols, m_cols };
-    }
+    static void SetThreshold(long double new_thres) { threshold = new_thres; }
+    static void SetDefThres() { threshold = DEFAULT_THRESHOLD; }
+    static long double GetThreshold() { return threshold; }
+    static bool IsZero(long double val) { return std::abs(val) < threshold; }
 
-    const ProxyRow operator[](size_t n) const {
-        if (n >= m_rows)
-            throw std::out_of_range("Matrix::operator[]: row index out of range");
-        return ProxyRow{ m_buffer + n * m_cols, m_cols };
-    }
+private:
+    static constexpr long double DEFAULT_THRESHOLD = 1e-10;
 
-    Matrix multiply(const Matrix& other) const;
-    Matrix add(const Matrix& other) const;
-    Matrix scalar_multiply(const T& scalar) const;
-    Matrix& multiply_assign(const Matrix& other);
-    Matrix& add_assign(const Matrix& other);
-    Matrix& scalar_multiply_assign(const T& scalar);
+    Matrix &Transpose_Quad();
 
-    T determinant() const;
-    void swap_rows(size_t row1, size_t row2);
+    void Alloc();
 
-public:
-    class const_iterator;
-    class iterator;
+    template <typename It>
+    void FillByIt(It begin, It end);
 
-    iterator begin();
-    iterator end();
-    const_iterator begin() const;
-    const_iterator end() const;
-    const_iterator cbegin() const;
-    const_iterator cend() const;
+    static void Swap(Matrix &lhs, Matrix &rhs);
+    static void Copy(Matrix &dst, const Matrix &src);
+
+    void SwapLines(size_t lhs, size_t rhs);
+    void AddLine(size_t dest_ind, size_t src_ind);
+    void MulLine(size_t line, long double val);
+
+    int FindNonZero(size_t st_col) const;
+
+    template <typename func>
+    void ForEach(func f);
 };
+
+template <typename T>
+bool operator==(const Matrix<T> &lhs, const Matrix<T> &rhs);
+
+template <typename T>
+Matrix<T> operator+(const Matrix<T> &lhs, const Matrix<T> &rhs);
+
+template <typename T>
+Matrix<T> operator-(const Matrix<T> &lhs, const Matrix<T> &rhs);
+
+template <typename T>
+Matrix<T> operator*(const Matrix<T> &lhs, const Matrix<T> &rhs);
+
+template <typename T>
+Matrix<T> operator*(const Matrix<T> &lhs, T val);
+
+template <typename T>
+Matrix<T> operator*(T val, const Matrix<T> &lhs);
+
+template <typename T>
+std::ostream &operator<<(std::ostream &ost, const Matrix<T> &matr);
+
+template <typename T>
+std::istream &operator>>(std::istream &ist, Matrix<T> &matr);
+
+template <typename T>
+std::istream &InputQuadr(std::istream &ist, Matrix<T> &matr);
 
 #include "matrix_impl.hpp"
 
-
+#endif // MATRIX_HPP
